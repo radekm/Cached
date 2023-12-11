@@ -107,6 +107,20 @@ type computation<'s when 's : equality>(scope : 's) =
             ca ctx
             cb () ctx
 
+    member _.Using(resource : 'r when 'r :> IDisposable, f : 'r -> Computation<'a>) : Computation<'a> =
+        // NOTE: The following implementation is wrong:
+        //
+        //     ```
+        //     try f resource
+        //     finally resource.Dispose()
+        //     ```
+        //
+        // The reason is that we first dispose `resource` and then return partial application `f resource`.
+        // Instead we must first evaluate `f resource ctx` and then dispose `resource`.
+        fun ctx ->
+            try f resource ctx
+            finally resource.Dispose()
+
 let inline getOrAddCachedValue (storage : Storage) (line : int) (key : 'k) ([<InlineIfLambda>] f : unit -> 'a) =
     let addr = { Line = line; Key = key :> obj }
     let found, v = storage.Values.TryGetValue addr

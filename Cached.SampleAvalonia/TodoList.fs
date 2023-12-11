@@ -8,13 +8,11 @@ open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
 
+open AvaloniaHelpers
 open Cached
 
 type TodoItem = { Name : string; mutable Done: bool }
 type TodoList = TodoItem ResizeArray
-
-let h1 text =
-    TextBlock(Margin = Thickness(0, 12, 0, 18), FontSize = 28, FontWeight = FontWeight.Bold, Text = text)
 
 // `refresh` function ensures that the view is refreshed.
 // Properties which don't change are initialized inside `cachedHere`.
@@ -71,7 +69,7 @@ let view refresh = computation "todo-list" {
 
     newItemButton.IsEnabled <- newItemName.Text |> String.IsNullOrWhiteSpace |> not
 
-    itemsStack.Children.Clear()  // TODO: Make helper which avoids clearing all children.
+    use itemsStackChildren = refreshChildren itemsStack
     for i = 0 to todoList.Count - 1 do
         let! isDone = cachedHereUnder i {
             let cb = CheckBox()
@@ -104,7 +102,7 @@ let view refresh = computation "todo-list" {
 
             panel
         }
-        itemsStack.Children.Add panel
+        itemsStackChildren.Add panel
 
         let item = todoList[i]
         isDone.IsChecked <- item.Done

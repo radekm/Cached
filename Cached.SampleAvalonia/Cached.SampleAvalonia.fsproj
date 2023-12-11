@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="AvaloniaHelpers.fs" />
         <Compile Include="TodoList.fs" />
         <Compile Include="Program.fs"/>
     </ItemGroup>
