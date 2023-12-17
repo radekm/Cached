@@ -100,4 +100,98 @@ See `Cached.SampleAvalonia/TodoList.fs` as an example.
 
 ## Tutorial 2 - Scopes
 
-TODO
+In the previous tutorial when defining computations we used expressions of the form
+`computation computation-name { ... }` and always gave our computations a name.
+The name can be any value whose type satisfies `equality` constraint.
+
+Computation names determine scopes. Scopes exist to ensure that different computations
+don't interfere with each other. For example suppose that we define
+
+```fsharp
+let counter = computation "counter" {
+    let! n = cachedHere { ref 0 }
+    return n
+}
+
+let countPositive xs = computation "countPositive" {
+    let! n = counter
+    xs
+    |> List.iter (fun x -> if x > 0 then n.Value <- n.Value + 1)
+    return n.Value
+} 
+
+let countNegative xs = computation "countNegative" {
+    let! n = counter
+    xs
+    |> List.iter (fun x -> if x < 0 then n.Value <- n.Value + 1)
+    return n.Value
+}
+
+let updateAndPrintStats xs = computation "updateAndPrintStats" {
+    let! positive = countPositive xs
+    let! negative = countNegative xs
+    printfn "We have seen %d positive numbers and %d negative numbers" positive negative
+} 
+```
+
+In the above example `counter` computation is used by both `countPositive` and `countNegative` computations
+and yet when we run `updateAndPrintStats` we see that two counters don't interfere with each other:
+
+```fsharp
+let countingStorage = createEmptyStorage ()
+
+runWithStorage countingStorage (updateAndPrintStats [-1; 1])
+// Prints: We have seen 1 positive numbers and 1 negative numbers
+
+runWithStorage countingStorage (updateAndPrintStats [-2; -3])
+// Prints: We have seen 1 positive numbers and 3 negative numbers
+
+runWithStorage countingStorage (updateAndPrintStats [-4; 2; 3])
+// Prints: We have seen 3 positive numbers and 4 negative numbers
+```
+
+The reason is that `cachedHere` is called from different scopes
+and different scopes don't share any data in the storage.
+
+- If `counter` is used from `countPositive` then `cachedHere` is called
+  from the scope `"updateAndPrintStats"` / `"countPositive"`  / `"counter"`.
+- On the other hand if `counter` is used from `countNegative` then `cachedHere` is called
+  from the scope `"updateAndPrintStats"` / `"countNegative"`  / `"counter"`.
+
+A scope is something like a call stack for computations. Initially
+`runWithStorage storage root` opens the scope for `root` computation.
+If `root` computation calls `nested` computation then
+it opens the scope for `nested` computation. When `nested` terminates
+the scope for `nested` is closed. Finally the scope for `root` is closed.
+`cachedHere` and `cachedHereUnder` operate only on the currently open scope.
+This means they look into the storage only for values stored in the currently open scope
+and when they put a new value into the storage they put it in the currently open scope.
+This also means they don't see values stored in the parent scope.
+
+Earlier we saw that we can't call `cachedHere` multiple times from the same line.
+Similarly to that we can't open one scope multiple times.
+Or in other words we can't open one scope after we closed it.
+If we run the following computation
+
+```fsharp
+let twoCountersWrong = computation "twoCountersWrong" {
+    let! m = counter
+    let! n = counter
+    printfn "Values are %d and %d" m.Value n.Value
+}
+```
+
+we get an exception saying `Scope cannot be used twice: "counter"`.
+When evaluating `let! m = counter` we open and close the scope `"twoCountersWrong"` / `"counter"`.
+The evaluation of `let! n = counter` then fails because it tries to open the scope `"twoCountersWrong"` / `"counter"`
+which was already closed.
+
+If we really want to use `counter` twice we have to do it from different scopes. For example
+
+```fsharp
+let twoCounters = computation "twoCounters" {
+    let! m = computation 1 { return! counter }
+    let! n = computation 2 { return! counter }
+    printfn "Values are %d and %d" m.Value n.Value
+}
+```
