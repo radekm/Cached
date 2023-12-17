@@ -121,6 +121,8 @@ type computation<'s when 's : equality>(scope : 's) =
             try f resource ctx
             finally resource.Dispose()
 
+    member _.ReturnFrom(ca : Computation<'a>) : Computation<'a> = ca
+
 let inline getOrAddCachedValue (storage : Storage) (line : int) (key : 'k) ([<InlineIfLambda>] f : unit -> 'a) =
     let addr = { Line = line; Key = key :> obj }
     let found, v = storage.Values.TryGetValue addr

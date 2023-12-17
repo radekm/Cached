@@ -37,3 +37,27 @@ let ``cachedHere can be used outside of computation expression`` () =
     let a2, b2 = runWithStorage s c
     Assert.That(a, Is.SameAs(a2))
     Assert.That(b, Is.SameAs(b2))
+
+[<Test>]
+let ``ReturnFrom is evaluated in correct scope`` () =
+    let counter = computation "counter" {
+        let! n = cachedHere { ref 0 }
+        n.Value <- n.Value + 1
+        return n
+    }
+    // We can't use `counter` computation twice directly.
+    // Because that would result in `"twoCounters"` / `"counter"` scope being opened twice.
+    let c = computation "twoCounters" {
+        let! m = computation 1 { return! counter }
+        let! n = computation 2 { return! counter }
+        return m.Value, n.Value
+    }
+
+    let s = createEmptyStorage ()
+    let a, b = runWithStorage s c
+    Assert.That(a, Is.EqualTo(1))
+    Assert.That(b, Is.EqualTo(1))
+
+    let a, b = runWithStorage s c
+    Assert.That(a, Is.EqualTo(2))
+    Assert.That(b, Is.EqualTo(2))
