@@ -47,7 +47,7 @@ let ``ReturnFrom is evaluated in correct scope`` () =
     }
     // We can't use `counter` computation twice directly.
     // Because that would result in `"twoCounters"` / `"counter"` scope being opened twice.
-    let c = computation "twoCounters" {
+    let c = computation "two counters" {
         let! m = computation 1 { return! counter }
         let! n = computation 2 { return! counter }
         return m.Value, n.Value
@@ -59,5 +59,30 @@ let ``ReturnFrom is evaluated in correct scope`` () =
     Assert.That(b, Is.EqualTo(1))
 
     let a, b = runWithStorage s c
+    Assert.That(a, Is.EqualTo(2))
+    Assert.That(b, Is.EqualTo(2))
+
+[<Test>]
+let ``line of let! matters, not line of cachedHere`` () =
+    // Because both calls of `cachedHere` are under the same `let!`,
+    // they both use the same key into a storage.
+    let c b = computation "let! matters" {
+        let! x =
+            if b
+            then cachedHere { 1 }
+            else cachedHere { 2 }
+        return x
+    }
+
+    // Result of `c` depends on which branch was evaluated first.
+    let s = createEmptyStorage ()
+    let a = runWithStorage s (c true)
+    let b = runWithStorage s (c false)
+    Assert.That(a, Is.EqualTo(1))
+    Assert.That(b, Is.EqualTo(1))
+
+    let s = createEmptyStorage ()
+    let a = runWithStorage s (c false)
+    let b = runWithStorage s (c true)
     Assert.That(a, Is.EqualTo(2))
     Assert.That(b, Is.EqualTo(2))

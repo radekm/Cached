@@ -11,7 +11,7 @@ You can write a single computation expression which can be used to create and al
 to update a user interface. Caching controls with internal state ensures
 that internal state is preserved and also improves performance.
 
-## Tutorial
+## Tutorial — Basics
 
 Let's construct our first computation with cached values:
 
@@ -54,8 +54,8 @@ In the next runs `cachedHere` finds the previously cached value in the storage a
 This means that subsequent runs of our computation `c` use mutable cell
 which was created by the first run.
 
-`cachedHere` uses the current line number as a key into the storage. So multiple calls of `cachedHere`
-work fine as long as they are on different lines
+`cachedHere` uses the line number of the last `let!` as a key into the storage. So multiple calls of `cachedHere`
+work fine as long as `let!`s are on different lines
 
 ```fsharp
 let c2 = computation "date and counter" {
@@ -66,7 +66,7 @@ let c2 = computation "date and counter" {
 }
 ```
 
-If we call `cachedHere` multiple times from the same line
+If we evaluate a single `let!` multiple times
 
 ```fsharp
 let c3 = computation "multiple dates" {
@@ -79,13 +79,12 @@ let c3 = computation "multiple dates" {
 we get an exception saying `Value at ... cannot be used twice`.
 The reason is that usually when caching inside a loop we want
 different iterations of the loop to not interfere with each other.
-In other words we don't want value cached in the first iteration
-to be used by the second iteration because otherwise we would call `cachedHere`
-before the loop and not inside the loop.
+In other words we usually don't want value cached in the first iteration
+to be used by the second iteration.
 
-So using the current line number as the key into the cache is not enough
+So using the line number of the last `let!` as the key into the storage is not enough
 in the above example. Fortunately there's a function `cachedHereUnder`
-which uses the current line number and the value given by the user as the key into the cache:
+which uses the line number of the last `let!` and the value given by the user as the key into the storage:
 
 ```fsharp
 let c4 = computation "multiple dates" {
@@ -95,10 +94,46 @@ let c4 = computation "multiple dates" {
 }
 ```
 
-And that's all. This basic knowledge is enough to build simple user interfaces.
+This basic knowledge is enough to build simple user interfaces.
 See `Cached.SampleAvalonia/TodoList.fs` as an example.
 
-## Tutorial 2 - Scopes
+### Using line number of `let!` vs line number of `cachedHere` 
+
+As explained above `cachedHere` and `cachedHereUnder` use the line number of the last `let!`
+as the key into the storage. The consequence is that both calls of `cachedHere` in
+the following example use the same key into the storage
+
+```fsharp
+let c5 b = computation "let! matters" {
+    let! x =
+        if b
+        then cachedHere { 1 }
+        else cachedHere { 2 }
+    return x
+}
+```
+
+which may result in a surprising behavior. The result of `c5` computation will
+depend on the value of `b` given to the first run.
+
+Another alternative for `Cached` library would be to use a line number of `cachedHere` or `cachedHereUnder`.
+This alternative would make it harder to use `cachedHere` and `cachedHereUnder` outside of computations.
+The following example would fail
+
+```fsharp
+let cachedInstance = cachedHere { obj() }
+
+let c = computation "two different instances" {
+    let! x = cachedInstance
+    let! y = cachedInstance
+    return x, y
+}
+```
+
+with an exception saying `Value at ... cannot be used twice`.
+Currently when using the line number of the last `let!` it works fine.
+
+## Tutorial — Scopes
 
 In the previous tutorial when defining computations we used expressions of the form
 `computation computation-name { ... }` and always gave our computations a name.
