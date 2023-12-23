@@ -11,6 +11,50 @@ You can write a single computation expression which can be used to create and al
 to update a user interface. Caching controls with internal state ensures
 that internal state is preserved and also improves performance.
 
+## Motivation
+
+My goal was to create UI in F#. But unfortunately there are no
+production-ready reactive libraries for F# and not even for .NET.
+That's at least my opinion and I'll explain why.
+
+Currently the closest candidates are
+
+- `ImGui.NET`. Dear ImGui is an awesome immediate mode UI library.
+  `ImGui.NET` NuGet package works with Silk.NET rendering.
+  Unfortunately it doesn't look and behave as other desktop applications.
+- `egui` written in Rust. It is also an immediate mode library which looks and behaves
+  more like other desktop applications (at least on Mac). 
+  I tried wrapping `egui` so I can use it from F#.
+  Unfortunately wrapping Rust code for other languages needs unsafe code
+  and thus it's harder than wrapping C or C++ code.
+  The reason is that Rust compiler expects that certain aliasing rules are followed.
+  These aliasing rules are more complex than for C and C++ and can be easily violated
+  in unsafe code thus introducing undefined behaviors.
+- `Avalonia`. This library looks and behaves fine on various platforms.
+  Unfortunately I don't like XAML nor its reactive part.
+
+The other well known libraries are either full of bugs like MAUI.
+Or are extremely complex like React or Blazor or Jetpack Compose or even Solid.js.
+These widely used libraries are maybe based on simple ideas
+but their implementation is complex
+(all have more than 1 K lines and some even more than 10 K lines).
+This complexity hides special cases which will probably surprise you.
+And I don't want to be surprised by my applications in production environments.
+
+I also tried other F# libraries which were adding reactivity to Avalonia.
+But most of them were not working properly even in simple scenarios.
+Among F# libraries I really liked [Vide](https://github.com/vide-collabo/Vide).
+Cached library is inspired by Vide.
+The main difference is that a type of a state used by a computation expression
+is not propagated outside. This makes resulting types much friendlier to the user
+and probably to the type checker. On the other hand types of Vide computation expressions
+contain a type of a whole state which can be massive.
+
+Cached library tries to be simple. Currently it has less than 300 lines.
+so anyone can read its source code and understand everything.
+Cached library can be used to add reactivity
+to retained mode UI libraries like Avalonia.
+
 ## Tutorial — Basics
 
 Let's construct our first computation with cached values:
