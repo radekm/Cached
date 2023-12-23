@@ -133,6 +133,12 @@ let c = computation "two different instances" {
 with an exception saying `Value at ... cannot be used twice`.
 Currently when using the line number of the last `let!` it works fine.
 
+### Eviction of unused values 
+
+Each call `runWithStorage storage c` monitors which values in a storage `storage`
+are used by a computation `c`. After `c` finishes values which were not used by `c`
+are removed from `storage`.
+
 ## Tutorial — Scopes
 
 In the previous tutorial when defining computations we used expressions of the form
